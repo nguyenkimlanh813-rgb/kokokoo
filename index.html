@@ -1,0 +1,225 @@
+import streamlit as st
+import random
+
+# Thiết lập giao diện
+st.set_page_config(page_title="Người Vận Chuyển - Delivery RPG", page_icon="🚚")
+
+st.title("🚚 Người Vận Chuyển: Cung Đường Hiểm Trở")
+st.markdown("---")
+
+# 1. Khởi tạo trạng thái game (Session State)
+if "game_started" not in st.session_state:
+    st.session_state.game_started = False
+    st.session_state.player_name = ""
+    st.session_state.cash = 500          # Tiền mặt khởi đầu
+    st.session_state.fuel = 100          # Nhiên liệu (tối đa 100)
+    st.session_state.max_fuel = 100
+    st.session_state.truck_hp = 100      # Độ bền xe (tối đa 100)
+    st.session_state.max_truck_hp = 100
+    st.session_state.location = "hub"    # hub (Trụ sở), market (Chợ hàng), travel (Đang giao hàng), gameover
+    
+    # Thông tin đơn hàng đang nhận
+    st.session_state.has_mission = False
+    st.session_state.cargo_name = ""
+    st.session_state.cargo_weight = 0
+    st.session_state.destination = ""
+    st.session_state.reward = 0
+    st.session_state.distance_left = 0
+    st.session_state.total_distance = 0
+    st.session_state.log = "Chào mừng tài xế đến với trạm điều hành!"
+
+# Màn hình nhập tên tài xế
+if not st.session_state.game_started:
+    st.subheader("Đăng ký tài xế vận chuyển")
+    name_input = st.text_input("Nhập tên tài xế của bạn:", value="Frank Martin")
+    
+    if st.button("Bắt đầu sự nghiệp"):
+        if name_input.strip() == "":
+            st.warning("Vui lòng nhập tên hợp lệ!")
+        else:
+            st.session_state.player_name = name_input
+            st.session_state.game_started = True
+            st.session_state.location = "hub"
+            st.session_state.log = f"Tài xế {name_input} đã nhận xe tải. Hãy chọn hợp đồng vận chuyển đầu tiên!"
+            st.rerun()
+
+# Khi game đã bắt đầu -> Sidebar hiển thị thông tin xe & tài chính
+else:
+    st.sidebar.title("📊 Bảng Điều Khiển Xe")
+    st.sidebar.write(f"**Tài xế:** {st.session_state.player_name}")
+    st.sidebar.write(f"**💵 Tiền vốn:** ${st.session_state.cash}")
+    
+    st.sidebar.write(f"**⛽ Nhiên liệu:** {st.session_state.fuel} / {st.session_state.max_fuel}")
+    st.sidebar.progress(st.session_state.fuel / st.session_state.max_fuel)
+    
+    st.sidebar.write(f"**🔧 Độ bền xe:** {st.session_state.truck_hp} / {st.session_state.max_truck_hp}")
+    st.sidebar.progress(st.session_state.truck_hp / st.session_state.max_truck_hp)
+    
+    st.sidebar.markdown("---")
+    
+    # Nút sửa xe nhanh ở sidebar
+    if st.sidebar.button("Sửa xe tại xưởng ($50)"):
+        if st.session_state.cash >= 50:
+            if st.session_state.truck_hp == st.session_state.max_truck_hp:
+                st.sidebar.info("Xe của bạn vẫn còn rất tốt!")
+            else:
+                st.session_state.cash -= 50
+                st.session_state.truck_hp = st.session_state.max_truck_hp
+                st.sidebar.success("Đã sửa xe hoàn tất!")
+                st.rerun()
+        else:
+            st.sidebar.error("Không đủ tiền sửa xe!")
+
+    if st.sidebar.button("Đổ đầy nhiên liệu ($40)"):
+        if st.session_state.cash >= 40:
+            if st.session_state.fuel == st.session_state.max_fuel:
+                st.sidebar.info("Bình xăng đã đầy!")
+            else:
+                st.session_state.cash -= 40
+                st.session_state.fuel = st.session_state.max_fuel
+                st.sidebar.success("Đã đổ đầy xăng!")
+                st.rerun()
+        else:
+            st.sidebar.error("Không đủ tiền mua xăng!")
+
+    if st.sidebar.button("Chơi lại từ đầu"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+    # --- KHU VỰC 1: TRỤ SỞ / CHỢ NHẬN HÀNG (HUB) ---
+    if st.session_state.location == "hub":
+        st.header("🏢 Trạm Điều Hành Vận Chuyển")
+        st.info(st.session_state.log)
+
+        if not st.session_state.has_mission:
+            st.subheader("📋 Bảng Hợp Đồng Vận Chuyển")
+            st.write("Chọn một đơn hàng phù hợp với lượng xăng và độ bền xe của bạn:")
+
+            # Danh sách các hợp đồng ngẫu nhiên
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**Thành Phố Miền Nam**")
+                st.write("📦 Hàng: Linh kiện điện tử")
+                st.write("🛣️ Quãng đường: 3 chặng")
+                st.write("💰 Thù lao: $250")
+                if st.button("Nhận đơn S.Nam"):
+                    st.session_state.has_mission = True
+                    st.session_state.cargo_name = "Linh kiện điện tử"
+                    st.session_state.destination = "Thành Phố Miền Nam"
+                    st.session_state.reward = 250
+                    st.session_state.distance_left = 3
+                    st.session_state.total_distance = 3
+                    st.session_state.location = "travel"
+                    st.session_state.log = "Đã nhận đơn hàng đi Thành Phố Miền Nam. Lên đường thôi!"
+                    st.rerun()
+
+            with col2:
+                st.markdown("**Vùng Mỏ Núi Cao**")
+                st.write("📦 Hàng: Khoáng sản quý")
+                st.write("🛣️ Quãng đường: 5 chặng")
+                st.write("💰 Thù lao: $500")
+                if st.button("Nhận đơn Núi Cao"):
+                    st.session_state.has_mission = True
+                    st.session_state.cargo_name = "Khoáng sản quý"
+                    st.session_state.destination = "Vùng Mỏ Núi Cao"
+                    st.session_state.reward = 500
+                    st.session_state.distance_left = 5
+                    st.session_state.total_distance = 5
+                    st.session_state.location = "travel"
+                    st.session_state.log = "Đã nhận đơn hàng đi Vùng Mỏ Núi Cao. Chuyến đi này khá dài!"
+                    st.rerun()
+
+            with col3:
+                st.markdown("**Thị Trấn Biên Giới**")
+                st.write("📦 Hàng: Nông sản tươi")
+                st.write("🛣️ Quãng đường: 2 chặng")
+                st.write("💰 Thù lao: $150")
+                if st.button("Nhận đơn Biên Giới"):
+                    st.session_state.has_mission = True
+                    st.session_state.cargo_name = "Nông sản tươi"
+                    st.session_state.destination = "Thị Trấn Biên Giới"
+                    st.session_state.reward = 150
+                    st.session_state.distance_left = 2
+                    st.session_state.total_distance = 2
+                    st.session_state.location = "travel"
+                    st.session_state.log = "Đã nhận đơn hàng đi Thị Trấn Biên Giới. Chuyến đi ngắn và an toàn."
+                    st.rerun()
+        else:
+            st.warning(f"Bạn đang nhận đơn hàng: **{st.cargo_name}** đi **{st.destination}**.")
+            if st.button("Tiếp tục hành trình giao hàng"):
+                st.session_state.location = "travel"
+                st.rerun()
+
+    # --- KHU VỰC 2: HÀNH TRÌNH VẬN CHUYỂN (TRAVEL) ---
+    elif st.session_state.location == "travel":
+        st.header(f"🛣️ Đang lái xe đến: {st.session_state.destination}")
+        st.write(f"**Hàng hóa:** {st.session_state.cargo_name}")
+        st.write(f"**Quãng đường còn lại:** {st.session_state.distance_left} / {st.session_state.total_distance} chặng")
+        
+        st.info(st.session_state.log)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("▶️ Lái xe qua 1 chặng"):
+                # Tiêu hao nhiên liệu
+                fuel_consumed = random.randint(15, 25)
+                st.session_state.fuel -= fuel_consumed
+                st.session_state.distance_left -= 1
+
+                # Kiểm tra hết xăng hoặc hỏng xe
+                if st.session_state.fuel <= 0:
+                    st.session_state.fuel = 0
+                    st.session_state.location = "gameover"
+                    st.session_state.log = "Xe của bạn đã cạn kiệt nhiên liệu giữa đường và bị cướp bỏ hoang..."
+                    st.rerun()
+
+                # Sự kiện ngẫu nhiên trên đường (50% gặp sự kiện)
+                event = random.choice(["none", "none", "bandit", "bad_road", "lucky_find"])
+                
+                if event == "bandit":
+                    damage = random.randint(15, 30)
+                    st.session_state.truck_hp -= damage
+                    st.session_state.log = f"⚠️ Bị cướp đường tấn công! Xe bị hư hại {damage} độ bền."
+                elif event == "bad_road":
+                    st.session_state.log = "🌧️ Gặp đoạn đường sạt lở, xe tốn thêm nhiều nhiên liệu và thời gian."
+                elif event == "lucky_find":
+                    bonus_cash = 50
+                    st.session_state.cash += bonus_cash
+                    st.session_state.log = f"✨ Bạn tìm thấy khoản tiền rơi vãi bên đường: +${bonus_cash}!"
+                else:
+                    st.session_state.log = "✨ Chặng đường trôi qua suôn sẻ, không có sự cố gì lớn."
+
+                # Kiểm tra độ bền xe
+                if st.session_state.truck_hp <= 0:
+                    st.session_state.truck_hp = 0
+                    st.session_state.location = "gameover"
+                    st.session_state.log = "Xe tải của bạn đã hỏng nặng không thể di chuyển tiếp..."
+                    st.rerun()
+
+                # Kiểm tra xem đã đến đích chưa
+                if st.session_state.distance_left <= 0:
+                    st.session_state.cash += st.session_state.reward
+                    st.session_state.has_mission = False
+                    st.session_state.location = "hub"
+                    st.session_state.log = f"🎉 Giao hàng thành công! Bạn nhận được ${st.session_state.reward}."
+                    st.rerun()
+                else:
+                    st.rerun()
+
+        with col2:
+            if st.button("❌ Hủy bỏ đơn hàng"):
+                st.session_state.has_mission = False
+                st.session_state.location = "hub"
+                st.session_state.log = "Bạn đã hủy đơn hàng và quay về trạm."
+                st.rerun()
+
+    # --- KHU VỰC 3: GAME OVER ---
+    elif st.session_state.location == "gameover":
+        st.error("💀 THẤT BẠI - CHUYẾN HÀNG ĐÃ ĐỔ VỠ 💀")
+        st.write(st.session_state.log)
+        if st.button("🔄 Đổi xe mới và chơi lại"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
